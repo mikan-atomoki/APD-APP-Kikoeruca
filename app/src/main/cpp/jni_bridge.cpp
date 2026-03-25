@@ -46,11 +46,13 @@ Java_com_kikoeruca_debug_APDEngine_nativeInfer(
     if (!inf) return nullptr;
 
     jint len = env->GetArrayLength(audio);
-    jfloat* data = env->GetFloatArrayElements(audio, nullptr);
+    jfloat* data = static_cast<jfloat*>(
+        env->GetPrimitiveArrayCritical(audio, nullptr));
+    if (!data) return nullptr;
 
     auto result = inf->run(data, len);
 
-    env->ReleaseFloatArrayElements(audio, data, JNI_ABORT);
+    env->ReleasePrimitiveArrayCritical(audio, data, JNI_ABORT);
 
     // Return [pre_sigmoid, score, inference_ms]
     jfloatArray ret = env->NewFloatArray(3);

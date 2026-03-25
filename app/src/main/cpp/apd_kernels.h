@@ -37,7 +37,8 @@ void bit_conv1d(
     const uint8_t* w_packed, const float* bias,
     int out_ch, int ks, int stride, int pad, int dil, int groups,
     float scale,
-    float* out, int T_out);
+    float* out, int T_out,
+    float* norm_scratch = nullptr);
 
 // BitLinear: 1-bit weights, float input.
 // IMPORTANT: x must remain float32. Do NOT convert to sign bits.
@@ -48,7 +49,8 @@ void bit_linear(
     const float* x, int in_f,
     const uint8_t* w_packed, const float* bias,
     int out_f, float scale,
-    float* out);
+    float* out,
+    float* norm_scratch = nullptr);
 
 // GroupNorm: groups=1 (LayerNorm) fast path included.
 // x: (channels, T), in-place.

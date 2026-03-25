@@ -26,6 +26,7 @@ private:
     std::vector<float> buf_b_;
     std::vector<float> residual_;
     std::vector<float> pooled_;
+    std::vector<float> norm_buf_;  // scratch for bit_conv1d/bit_linear normalization
 
     int max_channels_ = 0;
     int max_T_ = 0;

@@ -205,6 +205,9 @@ class MainActivity : AppCompatActivity(), AudioCapture.Listener {
                 Log.d(TAG, "inference: %.1fms | score=%.2f | rms=%.4f | action=%s | interval=%d".format(
                     result.inferenceMs, result.score, rms, decision.action.name, decision.interval))
             }
+            InferenceController.Action.SKIP_NO_SPEECH -> {
+                Log.v(TAG, "skip (no speech): rms=%.4f | action=%s".format(rms, decision.action.name))
+            }
             else -> {
                 Log.v(TAG, "skip: rms=%.4f | action=%s".format(rms, decision.action.name))
             }
@@ -238,6 +241,14 @@ class MainActivity : AppCompatActivity(), AudioCapture.Listener {
             }
         }
 
+        // SKIP_NO_SPEECH: stationary noise detected, show "問題なし"
+        if (decision.action == InferenceController.Action.SKIP_NO_SPEECH) {
+            scoreText.text = "--"
+            zoneText.text = zones[3].name
+            ringGauge.score = 1.0f
+            ringGauge.gaugeColor = zones[3].color
+            statusText.text = "計測中..."
+        }
         // SKIP_QUIET: keep showing the previous result as-is
     }
 

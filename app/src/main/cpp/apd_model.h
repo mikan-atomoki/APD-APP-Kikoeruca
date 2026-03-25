@@ -62,6 +62,8 @@ struct PReLUInfo {
 struct Layer {
     LayerType type;
     std::string name;
+    bool residual_save = false;  // save cur to residual before this layer
+    bool residual_add  = false;  // add residual to cur after this layer
     union {
         BitConv1dInfo  bitconv;
         BitLinearInfo  bitlin;
@@ -181,6 +183,14 @@ struct Model {
 
         weight_data = raw_data.data() + (p - raw_data.data());
         weight_data_size = size - (p - raw_data.data());
+
+        // Precompute residual flags (avoid string::find in hot loop)
+        for (int i = 0; i < n_layers; i++) {
+            auto& L = layers[i];
+            bool is_tcn = L.name.find("tcn.") != std::string::npos;
+            L.residual_save = is_tcn && L.name.find(".depthwise") != std::string::npos;
+            L.residual_add  = is_tcn && L.name.find(".pointwise") != std::string::npos;
+        }
 
         LOGI("Loaded APD model: v%d, %d layers, %zuB weights",
              version, n_layers, weight_data_size);

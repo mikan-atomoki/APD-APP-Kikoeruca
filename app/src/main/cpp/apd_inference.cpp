@@ -47,6 +47,7 @@ void Inference::allocate_buffers() {
     buf_b_.resize(buf_size, 0.0f);
     residual_.resize(buf_size, 0.0f);
     pooled_.resize(max_channels_, 0.0f);
+    norm_buf_.resize(buf_size, 0.0f);
 
     LOGI("Buffers allocated: %d ch x %d T = %zu floats",
          max_channels_, max_T_, buf_size);
@@ -75,8 +76,7 @@ InferenceResult Inference::run(const float* audio_16k_mono, int length) {
         const Layer& L = model_.layers[li];
 
         // Save residual BEFORE depthwise (TCN residual connection)
-        if (L.name.find(".depthwise") != std::string::npos &&
-            L.name.find("tcn.") != std::string::npos) {
+        if (L.residual_save) {
             memcpy(residual_.data(), cur, sizeof(float) * C * T);
         }
 
@@ -112,7 +112,7 @@ InferenceResult Inference::run(const float* audio_16k_mono, int length) {
             kernels::bit_conv1d(
                 cur, d.in_ch, T, wp, b,
                 d.out_ch, d.ks, d.stride, d.pad, d.dil, d.groups,
-                d.scale, tmp, T_out);
+                d.scale, tmp, T_out, norm_buf_.data());
             C = d.out_ch;
             T = T_out;
             std::swap(cur, tmp);
@@ -146,7 +146,7 @@ InferenceResult Inference::run(const float* audio_16k_mono, int length) {
                 T = 1;
             }
 
-            kernels::bit_linear(cur, d.in_f, wp, b, d.out_f, d.scale, tmp);
+            kernels::bit_linear(cur, d.in_f, wp, b, d.out_f, d.scale, tmp, norm_buf_.data());
             C = d.out_f;
             std::swap(cur, tmp);
             break;
@@ -156,8 +156,7 @@ InferenceResult Inference::run(const float* audio_16k_mono, int length) {
         }
 
         // Add residual AFTER pointwise (TCN residual connection)
-        if (L.name.find(".pointwise") != std::string::npos &&
-            L.name.find("tcn.") != std::string::npos) {
+        if (L.residual_add) {
             const int n = C * T;
             float* c = cur;
             const float* r = residual_.data();

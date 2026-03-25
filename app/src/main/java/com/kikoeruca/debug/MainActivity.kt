@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity(), AudioCapture.Listener {
         Zone("やや困難",    Color.parseColor("#F5D020")),
         Zone("問題なし",    Color.parseColor("#4CDD4C")),
     )
-    private val thresholds = floatArrayOf(0.3f, 0.5f, 0.8f)
+    private val thresholds = floatArrayOf(0.2f, 0.4f, 0.7f)
 
     private var isMeasuring = false
     private var lastVibrationTime = 0L
@@ -241,15 +241,15 @@ class MainActivity : AppCompatActivity(), AudioCapture.Listener {
             }
         }
 
-        // SKIP_NO_SPEECH: stationary noise detected, show "問題なし"
-        if (decision.action == InferenceController.Action.SKIP_NO_SPEECH) {
+        // No speech: show "問題なし" (quiet or stationary noise)
+        if (decision.action == InferenceController.Action.SKIP_QUIET ||
+            decision.action == InferenceController.Action.SKIP_NO_SPEECH) {
             scoreText.text = "--"
             zoneText.text = zones[3].name
             ringGauge.score = 1.0f
             ringGauge.gaugeColor = zones[3].color
             statusText.text = "計測中..."
         }
-        // SKIP_QUIET: keep showing the previous result as-is
     }
 
     // ── Vibration ──

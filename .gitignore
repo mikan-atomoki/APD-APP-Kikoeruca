@@ -1,3 +1,4 @@
+# Android
 .gradle/
 build/
 app/build/
@@ -8,3 +9,25 @@ local.properties
 .idea/
 captures/
 .externalNativeBuild/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+.venv/
+.env
+
+# Training artifacts
+data/
+checkpoints/
+checkpoints_*/
+*.pt
+*.pth
+*.log
+
+# Keep the bundled model in assets
+!app/src/main/assets/model.apd
+
+.vscode/

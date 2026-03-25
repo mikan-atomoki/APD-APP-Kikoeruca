@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>APD Intelligibility Monitor</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --red: #E53935;
+  --orange: #FB8C00;
+  --yellow: #FDD835;
+  --green: #43A047;
+  --bg: #121212;
+  --surface: #1E1E1E;
+  --surface2: #2A2A2A;
+  --text: #E0E0E0;
+  --text-dim: #888;
+}
+
+body {
+  font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  max-width: 420px;
+  margin: 0 auto;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid #333;
+}
+.header h1 { font-size: 16px; font-weight: 600; }
+.header .status {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--green);
+  color: #fff;
+  font-weight: 600;
+}
+.header .status.off { background: #555; }
+
+/* Score Ring */
+.score-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px 20px;
+}
+
+.ring-container {
+  position: relative;
+  width: 220px;
+  height: 220px;
+}
+
+.ring-container svg {
+  transform: rotate(-90deg);
+  width: 220px;
+  height: 220px;
+}
+
+.ring-bg {
+  fill: none;
+  stroke: var(--surface2);
+  stroke-width: 12;
+}
+
+.ring-fill {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
+}
+
+.score-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.score-value {
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  transition: color 0.3s ease;
+}
+
+.score-label {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* Zone label */
+.zone-badge {
+  margin-top: 16px;
+  padding: 6px 20px;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  transition: background 0.3s ease;
+}
+
+/* Waveform */
+.waveform-section {
+  padding: 0 20px;
+  margin-top: 8px;
+}
+
+.waveform-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+canvas#waveform {
+  width: 100%;
+  height: 64px;
+  background: var(--surface);
+  border-radius: 8px;
+  display: block;
+}
+
+/* History */
+.history-section {
+  padding: 0 20px;
+  margin-top: 20px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.history-header h2 { font-size: 13px; color: var(--text-dim); }
+.history-header span { font-size: 11px; color: var(--text-dim); }
+
+canvas#history {
+  width: 100%;
+  height: 120px;
+  background: var(--surface);
+  border-radius: 8px;
+  display: block;
+}
+
+/* Threshold legend */
+.legend {
+  display: flex;
+  justify-content: space-around;
+  padding: 12px 20px;
+  margin-top: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Stats row */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 12px 20px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+
+.stat-val {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* Debug panel */
+.debug-panel {
+  background: var(--surface);
+  margin: 16px 20px;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+
+.debug-panel .row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  color: var(--text-dim);
+}
+
+.debug-panel .row span:last-child { color: var(--text); }
+
+/* Demo slider */
+.demo-controls {
+  padding: 16px 20px;
+  background: var(--surface);
+  margin: 12px 20px;
+  border-radius: 10px;
+}
+
+.demo-controls label {
+  font-size: 11px;
+  color: var(--text-dim);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.demo-controls input[type=range] {
+  width: 100%;
+  accent-color: var(--green);
+}
+
+.demo-controls .btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.demo-controls button {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.demo-controls button:active { opacity: 0.7; }
+.demo-controls button.active { background: #2962FF; color: #fff; }
+
+/* Bottom nav */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid #333;
+  padding: 8px 0;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.nav-item {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 4px;
+}
+
+.nav-item.active { color: #2962FF; }
+
+.nav-icon {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.spacer { height: 72px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>APD Monitor</h1>
+  <span class="status" id="statusBadge">LIVE</span>
+</div>
+
+<div class="score-section">
+  <div class="ring-container">
+    <svg viewBox="0 0 220 220">
+      <circle class="ring-bg" cx="110" cy="110" r="95"/>
+      <circle class="ring-fill" id="ringFill" cx="110" cy="110" r="95"
+              stroke-dasharray="597" stroke-dashoffset="597"/>
+    </svg>
+    <div class="score-center">
+      <div class="score-value" id="scoreValue">--</div>
+      <div class="score-label">intelligibility</div>
+    </div>
+  </div>
+  <div class="zone-badge" id="zoneBadge">--</div>
+</div>
+
+<div class="waveform-section">
+  <div class="waveform-label">AUDIO INPUT</div>
+  <canvas id="waveform"></canvas>
+</div>
+
+<div class="history-section">
+  <div class="history-header">
+    <h2>SCORE HISTORY</h2>
+    <span id="historyTime">0s</span>
+  </div>
+  <canvas id="history"></canvas>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>OK</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>やや困難</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>困難</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>聴取不能</div>
+</div>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-val" id="statAvg">--</div>
+    <div class="stat-label">AVG (30s)</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val" id="statMin">--</div>
+    <div class="stat-label">MIN</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val" id="statInfer">--</div>
+    <div class="stat-label">INFER (ms)</div>
+  </div>
+</div>
+
+<div class="debug-panel" id="debugPanel">
+  <div class="row"><span>pre_sigmoid</span><span id="dbPreSig">--</span></div>
+  <div class="row"><span>post_sigmoid</span><span id="dbPostSig">--</span></div>
+  <div class="row"><span>model</span><span>APD1 v1 (104 layers)</span></div>
+  <div class="row"><span>window</span><span>16000 samples @ 16kHz</span></div>
+  <div class="row"><span>calibration</span><span id="dbCal">default [0.3, 0.5, 0.8]</span></div>
+</div>
+
+<div class="demo-controls">
+  <label>DEMO: Score Slider</label>
+  <input type="range" id="scoreSlider" min="0" max="100" value="50">
+  <div class="btn-row">
+    <button id="btnDemo" class="active" onclick="setMode('demo')">Demo</button>
+    <button id="btnMic" onclick="setMode('mic')">Mic Input</button>
+    <button id="btnSweep" onclick="setMode('sweep')">Auto Sweep</button>
+  </div>
+</div>
+
+<div class="spacer"></div>
+
+<div class="bottom-nav">
+  <div class="nav-item active"><span class="nav-icon">◉</span>Monitor</div>
+  <div class="nav-item"><span class="nav-icon">⚙</span>Calibration</div>
+  <div class="nav-item"><span class="nav-icon">📊</span>Log</div>
+</div>
+
+<script>
+// --- Config ---
+const THRESHOLDS = [0.3, 0.5, 0.8];
+const COLORS = {
+  red:    '#E53935',
+  orange: '#FB8C00',
+  yellow: '#FDD835',
+  green:  '#43A047',
+};
+const ZONE_INFO = [
+  { name: '聴取不能',  color: COLORS.red    },
+  { name: '困難',      color: COLORS.orange },
+  { name: 'やや困難',  color: COLORS.yellow },
+  { name: '問題なし',  color: COLORS.green  },
+];
+
+// --- State ---
+let currentScore = 0.5;
+let history = [];
+const MAX_HISTORY = 60;
+let mode = 'demo';
+let sweepDir = 1;
+let sweepVal = 0.5;
+let audioCtx, analyser, dataArray, micStream;
+
+// --- DOM ---
+const scoreValue  = document.getElementById('scoreValue');
+const zoneBadge   = document.getElementById('zoneBadge');
+const ringFill    = document.getElementById('ringFill');
+const slider      = document.getElementById('scoreSlider');
+const statAvg     = document.getElementById('statAvg');
+const statMin     = document.getElementById('statMin');
+const statInfer   = document.getElementById('statInfer');
+const dbPreSig    = document.getElementById('dbPreSig');
+const dbPostSig   = document.getElementById('dbPostSig');
+const historyTime = document.getElementById('historyTime');
+
+const wfCanvas  = document.getElementById('waveform');
+const wfCtx     = wfCanvas.getContext('2d');
+const hCanvas   = document.getElementById('history');
+const hCtx      = hCanvas.getContext('2d');
+
+function resizeCanvases() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const [c, ctx] of [[wfCanvas, wfCtx], [hCanvas, hCtx]]) {
+    const r = c.getBoundingClientRect();
+    c.width = r.width * dpr;
+    c.height = r.height * dpr;
+    ctx.scale(dpr, dpr);
+  }
+}
+resizeCanvases();
+window.addEventListener('resize', resizeCanvases);
+
+// --- Zone helpers ---
+function getZone(score) {
+  if (score >= THRESHOLDS[2]) return 3;
+  if (score >= THRESHOLDS[1]) return 2;
+  if (score >= THRESHOLDS[0]) return 1;
+  return 0;
+}
+
+function scoreToPreSigmoid(s) {
+  s = Math.max(0.001, Math.min(0.999, s));
+  return Math.log(s / (1 - s));
+}
+
+// --- Update UI ---
+function updateScore(score) {
+  currentScore = score;
+  const zone = getZone(score);
+  const info = ZONE_INFO[zone];
+
+  // Score text
+  scoreValue.textContent = score.toFixed(2);
+  scoreValue.style.color = info.color;
+
+  // Ring
+  const circumference = 2 * Math.PI * 95;
+  const offset = circumference * (1 - score);
+  ringFill.style.strokeDashoffset = offset;
+  ringFill.style.stroke = info.color;
+
+  // Badge
+  zoneBadge.textContent = info.name;
+  zoneBadge.style.background = info.color;
+  zoneBadge.style.color = zone === 2 ? '#000' : '#fff';
+
+  // Debug
+  const preSig = scoreToPreSigmoid(score);
+  dbPreSig.textContent = preSig.toFixed(6);
+  dbPostSig.textContent = score.toFixed(6);
+
+  // Fake inference time (3-8ms)
+  const inferMs = (3 + Math.random() * 5).toFixed(1);
+  statInfer.textContent = inferMs;
+
+  // History
+  history.push(score);
+  if (history.length > MAX_HISTORY) history.shift();
+  historyTime.textContent = history.length + 's';
+
+  // Stats
+  const recent = history.slice(-30);
+  const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+  const min = Math.min(...recent);
+  statAvg.textContent = avg.toFixed(2);
+  statAvg.style.color = ZONE_INFO[getZone(avg)].color;
+  statMin.textContent = min.toFixed(2);
+  statMin.style.color = ZONE_INFO[getZone(min)].color;
+}
+
+// --- Waveform ---
+function drawWaveform() {
+  const w = wfCanvas.getBoundingClientRect().width;
+  const h = wfCanvas.getBoundingClientRect().height;
+  wfCtx.clearRect(0, 0, w, h);
+
+  const zone = getZone(currentScore);
+  const color = ZONE_INFO[zone].color;
+
+  if (analyser && mode === 'mic') {
+    analyser.getByteTimeDomainData(dataArray);
+    wfCtx.beginPath();
+    wfCtx.strokeStyle = color;
+    wfCtx.lineWidth = 1.5;
+    const sliceW = w / dataArray.length;
+    for (let i = 0; i < dataArray.length; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * h) / 2;
+      i === 0 ? wfCtx.moveTo(0, y) : wfCtx.lineTo(i * sliceW, y);
+    }
+    wfCtx.stroke();
+  } else {
+    // Simulated waveform
+    const t = Date.now() / 1000;
+    wfCtx.beginPath();
+    wfCtx.strokeStyle = color;
+    wfCtx.lineWidth = 1.5;
+    for (let i = 0; i < w; i++) {
+      const amp = (0.3 + currentScore * 0.5) * h * 0.35;
+      const y = h / 2 + Math.sin(i * 0.05 + t * 3) * amp
+                       * Math.sin(i * 0.01 + t * 0.7)
+                       * (0.5 + 0.5 * Math.sin(i * 0.002 + t * 0.3));
+      i === 0 ? wfCtx.moveTo(0, y) : wfCtx.lineTo(i, y);
+    }
+    wfCtx.stroke();
+  }
+}
+
+// --- History chart ---
+function drawHistory() {
+  const w = hCanvas.getBoundingClientRect().width;
+  const h = hCanvas.getBoundingClientRect().height;
+  hCtx.clearRect(0, 0, w, h);
+
+  // Threshold lines
+  for (const t of THRESHOLDS) {
+    const y = h * (1 - t);
+    hCtx.strokeStyle = '#333';
+    hCtx.lineWidth = 1;
+    hCtx.setLineDash([4, 4]);
+    hCtx.beginPath();
+    hCtx.moveTo(0, y);
+    hCtx.lineTo(w, y);
+    hCtx.stroke();
+    hCtx.setLineDash([]);
+  }
+
+  // Zone backgrounds
+  const zones = [0, ...THRESHOLDS, 1];
+  const zoneColors = [COLORS.red, COLORS.orange, COLORS.yellow, COLORS.green];
+  for (let i = 0; i < 4; i++) {
+    const y1 = h * (1 - zones[i + 1]);
+    const y2 = h * (1 - zones[i]);
+    hCtx.fillStyle = zoneColors[i] + '10';
+    hCtx.fillRect(0, y1, w, y2 - y1);
+  }
+
+  if (history.length < 2) return;
+
+  // Score line
+  hCtx.beginPath();
+  hCtx.lineWidth = 2;
+  const step = w / (MAX_HISTORY - 1);
+  const startX = w - (history.length - 1) * step;
+
+  for (let i = 0; i < history.length; i++) {
+    const x = startX + i * step;
+    const y = h * (1 - history[i]);
+    const zone = getZone(history[i]);
+    if (i === 0) {
+      hCtx.moveTo(x, y);
+    } else {
+      hCtx.lineTo(x, y);
+    }
+  }
+  hCtx.strokeStyle = ZONE_INFO[getZone(currentScore)].color;
+  hCtx.stroke();
+
+  // Current dot
+  const lastX = w;
+  const lastY = h * (1 - history[history.length - 1]);
+  hCtx.beginPath();
+  hCtx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+  hCtx.fillStyle = ZONE_INFO[getZone(currentScore)].color;
+  hCtx.fill();
+}
+
+// --- Modes ---
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.demo-controls button').forEach(b => b.classList.remove('active'));
+  document.getElementById(m === 'demo' ? 'btnDemo' : m === 'mic' ? 'btnMic' : 'btnSweep').classList.add('active');
+
+  if (m === 'mic') startMic();
+  else stopMic();
+}
+
+async function startMic() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new AudioContext();
+    const source = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    document.getElementById('statusBadge').textContent = 'MIC';
+  } catch (e) {
+    alert('Microphone access denied');
+    setMode('demo');
+  }
+}
+
+function stopMic() {
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
+  }
+  if (audioCtx) {
+    audioCtx.close();
+    audioCtx = null;
+  }
+  document.getElementById('statusBadge').textContent = 'LIVE';
+}
+
+// --- Main loop ---
+slider.addEventListener('input', () => {
+  if (mode === 'demo') updateScore(slider.value / 100);
+});
+
+function tick() {
+  if (mode === 'sweep') {
+    sweepVal += sweepDir * 0.008;
+    if (sweepVal > 0.98) sweepDir = -1;
+    if (sweepVal < 0.02) sweepDir = 1;
+    updateScore(sweepVal);
+    slider.value = sweepVal * 100;
+  } else if (mode === 'mic' && analyser) {
+    analyser.getByteFrequencyData(dataArray);
+    const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+    const fakeScore = Math.max(0.02, Math.min(0.98,
+      0.5 + (avg - 40) / 200 + (Math.random() - 0.5) * 0.05
+    ));
+    updateScore(fakeScore);
+    slider.value = fakeScore * 100;
+  }
+
+  drawWaveform();
+  drawHistory();
+  requestAnimationFrame(tick);
+}
+
+// Init
+updateScore(0.5);
+tick();
+</script>
+</body>
+</html>
